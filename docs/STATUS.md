@@ -5,7 +5,7 @@
 
 ## 1. 一句话结论
 
-在远程 RTX 4090 D 上复现 autoresearch baseline：**环境 ✅ 数据 ✅ 训练 ✅，baseline val_bpb = 1.122878**。前两台 4090 是显存硬件故障，不是代码问题（LOG L2、L3）。
+在远程 RTX 4090 D 上复现 autoresearch：**环境 ✅ 数据 ✅ 训练 ✅ 实验循环 ✅**。baseline val_bpb 1.122878 → 经过 8 个实验，最好成绩 **1.099618**（commit `d01c2b3`，−0.0233）。**远程实例已在收尾时关机**（见第 8 节）。前两台 4090 是显存硬件故障，不是代码问题（LOG L2、L3）。
 
 ## 2. 任务看板
 
@@ -15,7 +15,7 @@
 | 2 | `prepare.py`（数据 + tokenizer） | ✅ | 11 个分片，tokenizer vocab=8192，`PREP_EXIT=0` | LOG L6 |
 | 3 | `train.py` baseline | ✅ | **val_bpb 1.122878**，260 步，峰值显存 11.4 GB，0 次 NaN，`TRAIN_EXIT=0` | LOG L7、L9 |
 | 4 | baseline 记入 `results.tsv` | ✅ | 远程 `/root/autoresearch/results.tsv`（不进 git） | LOG L9 |
-| 5 | `program.md` 自主实验循环（教学用，约 1 小时 / 约 8 个实验） | ⏳ 进行中 | 分支 `autoresearch/oct25-4090d`；实验记录在远程 `results.tsv` | LOG L10 |
+| 5 | `program.md` 自主实验循环（教学用，约 1 小时 / 8 个实验） | ✅ | 3 个保留（batch 2^18、`DEPTH` 6、`MATRIX_LR` 0.06），4 个丢弃，1 个只做测量；最好 **1.099618** | LOG L10、L11 |
 
 ## 3. 机器与路径
 
@@ -67,3 +67,10 @@ sh tools/run_remote.sh
 2. `train.py` 打印的 MFU 是按 H100 峰值算力计算的，在 4090 上只能做相对参考。
 3. 你给的运行命令里有 `NO_COMPILE=1`，但 `train.py` 并不读取这个变量。如果确实需要关闭编译，要另外加代码。
 4. 4090 在 5 分钟里只能跑 260 步（`program.md` 的 H100 示例是 953 步），所以 baseline bpb 比示例里的 0.998 高。之后的实验应该和 **1.122878** 比，不要和 H100 的数字比。
+
+## 8. 收尾状态（2026-10-25）
+
+- 三边同步到同一个 commit（分支 `autoresearch/oct25-4090d`；`repro/wsl-remote-4090` 也已同步）。
+- 远程独有的 `results.tsv` 和实验日志已备份到本地 `results/oct25-4090d/`（被 git 忽略，已用 sha256 核对），结果表同时写进了 LOG L11。
+- 按用户要求，对远程 ZCY-4090 执行了 `shutdown`，避免继续计费。数据盘和系统盘的内容关机后都保留；开机后 `~/.bashrc` 会自动加载 `tools/env.sh`，可以直接接着跑。
+- **重新开机后**：先运行第 4 节的第 0 步核对三边一致，再用 `sh tools/run_remote.sh` 跑实验。如果实例换了 SSH 别名，同时更新本地 git remote `zcy` 和 `run_remote.sh` 的 `HOST` 变量。
