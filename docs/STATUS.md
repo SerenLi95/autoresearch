@@ -1,7 +1,7 @@
 # 当前状态（STATUS）
 
 > **新会话先读这个文件。** 本文件只描述“现在”，每次有进展就覆盖更新；历史和证据在 [`LOG.md`](LOG.md)。
-> 最后更新：2026-10-25（CST）· 分支 `repro/wsl-remote-4090`
+> 最后更新：2026-10-25（CST）· 当前分支 `autoresearch/oct25-4090d`（从 `repro/wsl-remote-4090` 拉出）
 
 ## 1. 一句话结论
 
@@ -15,7 +15,7 @@
 | 2 | `prepare.py`（数据 + tokenizer） | ✅ | 11 个分片，tokenizer vocab=8192，`PREP_EXIT=0` | LOG L6 |
 | 3 | `train.py` baseline | ✅ | **val_bpb 1.122878**，260 步，峰值显存 11.4 GB，0 次 NaN，`TRAIN_EXIT=0` | LOG L7、L9 |
 | 4 | baseline 记入 `results.tsv` | ✅ | 远程 `/root/autoresearch/results.tsv`（不进 git） | LOG L9 |
-| 5 | 开始 `program.md` 的自主实验循环 | ⬜ 未开始 | **等用户确认**：在哪个分支上做（`program.md` 要求新建 `autoresearch/<tag>`）、跑多久 | `program.md` |
+| 5 | `program.md` 自主实验循环（教学用，约 1 小时 / 约 8 个实验） | ⏳ 进行中 | 分支 `autoresearch/oct25-4090d`；实验记录在远程 `results.tsv` | LOG L10 |
 
 ## 3. 机器与路径
 
@@ -41,8 +41,8 @@ for r in HEAD origin/repro/wsl-remote-4090 zcy/repro/wsl-remote-4090; do git rev
 ssh ZCY-4090 'cd /root/autoresearch && git status -sb && tail -3 run.log'
 ssh ZCY-4090 'grep "^val_bpb:\|^peak_vram_mb:" /root/autoresearch/run.log'
 
-# 2) 重新跑训练（约 7 分钟：编译 + 5 分钟训练 + 评估）
-ssh ZCY-4090 'cd /root/autoresearch && nohup sh -c "uv run train.py > run.log 2>&1; echo TRAIN_EXIT=\$? >> run.log" </dev/null >/dev/null 2>&1 &'
+# 2) 跑一个实验（本地执行：推送当前 HEAD → 远程训练 → 打印结果，约 7 分钟）
+sh tools/run_remote.sh
 ```
 
 **新实例 / 数据盘被清空后**，按顺序执行：

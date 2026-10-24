@@ -100,3 +100,11 @@
 - **证据**：远程 `/root/autoresearch/run.log`；baseline 已经记入远程 `results.tsv`（不进 git，`program.md` 的规定）。
 - **对比**：`program.md` 里的 H100 示例输出是 val_bpb 0.9979、953 步。4090 在 5 分钟内只能跑 260 步，所以 bpb 偏高，符合预期，不是 bug。
 - **附注**：训练后系统盘从 410 MB 涨到约 910 MB，经排查，其中 475 MB 是用户的 Cursor 远程服务端（`/root/.cursor-server`），约 20 MB 是 venv 的字节码；训练没有往系统盘写大文件。
+
+## L10 · 2026-10-25 · 开始自主实验循环（教学用）
+
+- **目标**（用户明确）：这是教学项目，目的是学会用 AI 工具驱动 AutoResearch 的工作流程，不追求结果有多好。所以只跑约 1 小时、约 8 个实验，覆盖“保留 / 丢弃 / 崩溃”三种情况，最后写流程复盘。
+- **分支**：`autoresearch/oct25-4090d`（`program.md` 规定格式 `autoresearch/<tag>`，tag 用日期，后缀标明硬件）。没有从 `master` 拉，因为 `master` 缺少 batch size 修复，在 24 GB 卡上会 OOM；改为从 `repro/wsl-remote-4090` 拉出。
+- **流程**：本地改 `train.py` → commit → `sh tools/run_remote.sh`（推送到远程并运行，超过 12 分钟按失败处理）→ 结果追加到远程 `results.tsv` → 变好则保留（推送到 GitHub），否则 `git reset --hard HEAD~1`。
+- **初始判断**：5 分钟只能跑 260 步、1.36 亿 token，模型有 5000 万参数（每个参数约 2.7 个 token），训练量严重不足。所以优先尝试“同样时间里多走几步”的方向：减小 `TOTAL_BATCH_SIZE`、减小模型、提高单步吞吐。
+- **实验 0**：baseline 原样重跑一次，用来测量同一配置两次运行之间的噪声，作为后面判断保留还是丢弃的阈值。
