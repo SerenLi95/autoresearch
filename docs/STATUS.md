@@ -5,7 +5,7 @@
 
 ## 1. 一句话结论
 
-在远程 RTX 4090 D 上复现 autoresearch baseline。**环境 ✅ 数据 ✅ 训练 ⏳**（见下表）。前两台 4090 是显存硬件故障，不是代码问题（LOG L2、L3）。
+在远程 RTX 4090 D 上复现 autoresearch baseline：**环境 ✅ 数据 ✅ 训练 ✅，baseline val_bpb = 1.122878**。前两台 4090 是显存硬件故障，不是代码问题（LOG L2、L3）。
 
 ## 2. 任务看板
 
@@ -13,8 +13,9 @@
 |---|---|---|---|---|
 | 1 | 环境配置 | ✅ | `.venv` 复用系统 torch 2.11.0+cu128，GPU sm_89；显存测试 0 错误 | LOG L4 |
 | 2 | `prepare.py`（数据 + tokenizer） | ✅ | 11 个分片，tokenizer vocab=8192，`PREP_EXIT=0` | LOG L6 |
-| 3 | `train.py` baseline | ⏳ 进行中 | — | LOG L7 |
-| 4 | 把 baseline 记入 `results.tsv`，开始 `program.md` 的实验循环 | ⬜ 未开始 | 需要用户确认后再开始 | `program.md` |
+| 3 | `train.py` baseline | ✅ | **val_bpb 1.122878**，260 步，峰值显存 11.4 GB，0 次 NaN，`TRAIN_EXIT=0` | LOG L7、L9 |
+| 4 | baseline 记入 `results.tsv` | ✅ | 远程 `/root/autoresearch/results.tsv`（不进 git） | LOG L9 |
+| 5 | 开始 `program.md` 的自主实验循环 | ⬜ 未开始 | **等用户确认**：在哪个分支上做（`program.md` 要求新建 `autoresearch/<tag>`）、跑多久 | `program.md` |
 
 ## 3. 机器与路径
 
@@ -65,3 +66,4 @@ ssh ZCY-4090 'cd /root/autoresearch && nohup sh -c "uv run train.py > run.log 2>
 1. **torch 版本偏差**：实际运行的是 2.11.0，而锁定的是 2.9.1（为了遵守“不要重复下载 PyTorch”）。baseline 数值可能和上游有细微差别；同一台机器上做前后实验对比不受影响。
 2. `train.py` 打印的 MFU 是按 H100 峰值算力计算的，在 4090 上只能做相对参考。
 3. 你给的运行命令里有 `NO_COMPILE=1`，但 `train.py` 并不读取这个变量。如果确实需要关闭编译，要另外加代码。
+4. 4090 在 5 分钟里只能跑 260 步（`program.md` 的 H100 示例是 953 步），所以 baseline bpb 比示例里的 0.998 高。之后的实验应该和 **1.122878** 比，不要和 H100 的数字比。

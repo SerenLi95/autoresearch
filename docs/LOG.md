@@ -80,3 +80,23 @@
 - **流程**：本地 commit → `git push origin` → `git push zcy` → 检查三边的 `rev-parse` 是否一致。
 - `run.log` 加入 `.gitignore`（和 `results.tsv` 一样，结果文件不进 git，见 `program.md`）。
 - 运维脚本从远程的 `/root/tools` 收进仓库的 `tools/`，随三边同步。
+
+## L9 · 2026-10-25 · ZCY-4090：baseline 训练跑通
+
+- **做法**：FA3 kernel 通过 sha256 校验后，运行 `uv run train.py > run.log`（`tools/train_after_fa3.sh`），代码版本 `6e20959`（`train.py` 与 `8156015` 相同）。
+- **结果**：`TRAIN_EXIT=0`，日志里 NaN/FAIL/Traceback 共 **0** 次。
+
+  | 指标 | 值 |
+  |---|---|
+  | **val_bpb** | **1.122878** |
+  | training_seconds / total_seconds | 300.8 / 384.3 |
+  | peak_vram_mb | 11701.0（≈11.4 GB / 24 GB） |
+  | num_steps | 260（每步约 1.21 s，约 43.3 万 tok/s） |
+  | total_tokens_M | 136.3 |
+  | num_params_M / depth | 50.3 / 8 |
+  | mfu_percent | 10.53（按 H100 峰值算，只能做相对参考） |
+
+- **loss 曲线**（平滑后）：step 0 = 9.01 → 39 = 5.09 → 79 = 4.08 → 119 = 3.63 → 159 = 3.41 → 199 = 3.27 → 239 = 3.19 → 259 = 3.13。曲线单调下降；`lrm` 从 60% 进度开始按 warmdown 降到 0，符合配置（`WARMDOWN_RATIO=0.5`）。
+- **证据**：远程 `/root/autoresearch/run.log`；baseline 已经记入远程 `results.tsv`（不进 git，`program.md` 的规定）。
+- **对比**：`program.md` 里的 H100 示例输出是 val_bpb 0.9979、953 步。4090 在 5 分钟内只能跑 260 步，所以 bpb 偏高，符合预期，不是 bug。
+- **附注**：训练后系统盘从 410 MB 涨到约 910 MB，经排查，其中 475 MB 是用户的 Cursor 远程服务端（`/root/.cursor-server`），约 20 MB 是 venv 的字节码；训练没有往系统盘写大文件。
