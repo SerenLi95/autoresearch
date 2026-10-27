@@ -13,7 +13,7 @@ results/
 queue/
 
 # Agent prompt files (generated per-session by launchers)
-CLAUDE.md
+# CLAUDE.md is tracked in this fork: it holds hand-written project rules
 AGENTS.md
 
 # Experimental code/artifacts

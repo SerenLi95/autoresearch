@@ -144,3 +144,9 @@
   3. STATUS：标明主线分支、链接 ROADMAP；修正过时的 `/root/tools/*.log` 路径；三边核对命令改为同时检查两个分支；同步规则补充“文档合回主线”。
   4. `CLAUDE.md` 增加文档规则，新会话自动遵守（`CLAUDE.md` 被 `.gitignore` 忽略，只在本地 WSL 生效，两个窗格都在本地，够用）。
 - **同步**：远程 ZCY-4090 已关机，本次只同步本地和 GitHub；远程开机后补推主线。
+
+## L13 · 2026-10-27 · `CLAUDE.md` 纳入版本管理并重写
+
+- **原因**：上游 `.gitignore` 把 `CLAUDE.md` 当作启动脚本每次临时生成的文件而忽略；本 fork 里它是手写的长期规则，被忽略就不会同步到 GitHub 和远程，换环境会丢。
+- **做法**：`.gitignore` 去掉 `CLAUDE.md`（`AGENTS.md` 仍忽略）；`CLAUDE.md` 按用户确认的版本重写：语言规范（删掉误输入的 `1`）、项目背景（教学项目、短循环）、开工前先读 STATUS / ROADMAP、记录规范、环境硬规则（远程不 `git pull`、不直接 `uv sync`、新 GPU 先测显存、`pkill` 写法）、需要先问用户的操作（关机、删远程数据、主线 force push、改 `program.md` / `prepare.py`）。
+- **原则**：`CLAUDE.md` 只写长期稳定的规则，不写状态；状态在 STATUS，阶段在 ROADMAP。
