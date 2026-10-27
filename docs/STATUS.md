@@ -1,11 +1,12 @@
 # 当前状态（STATUS）
 
 > **新会话先读这个文件。** 本文件只描述“现在”，每次有进展就覆盖更新；历史和证据在 [`LOG.md`](LOG.md)。
-> 最后更新：2026-10-25（CST）· 分支 `repro/wsl-remote-4090`
+> 项目级的目标和阶段看 [`ROADMAP.md`](ROADMAP.md)。
+> 最后更新：2026-10-27 · **主线分支 `repro/wsl-remote-4090`**（文档以此为准）· 最近的实验分支 `autoresearch/oct25-4090d`
 
 ## 1. 一句话结论
 
-在远程 RTX 4090 D 上复现 autoresearch baseline：**环境 ✅ 数据 ✅ 训练 ✅，baseline val_bpb = 1.122878**。前两台 4090 是显存硬件故障，不是代码问题（LOG L2、L3）。
+在远程 RTX 4090 D 上复现 autoresearch：**环境 ✅ 数据 ✅ 训练 ✅ 实验循环 ✅**。baseline val_bpb 1.122878 → 经过 8 个实验，最好成绩 **1.099618**（commit `d01c2b3`，−0.0233）。**远程实例已在收尾时关机**（见第 8 节）。前两台 4090 是显存硬件故障，不是代码问题（LOG L2、L3）。
 
 ## 2. 任务看板
 
@@ -15,7 +16,7 @@
 | 2 | `prepare.py`（数据 + tokenizer） | ✅ | 11 个分片，tokenizer vocab=8192，`PREP_EXIT=0` | LOG L6 |
 | 3 | `train.py` baseline | ✅ | **val_bpb 1.122878**，260 步，峰值显存 11.4 GB，0 次 NaN，`TRAIN_EXIT=0` | LOG L7、L9 |
 | 4 | baseline 记入 `results.tsv` | ✅ | 远程 `/root/autoresearch/results.tsv`（不进 git） | LOG L9 |
-| 5 | 开始 `program.md` 的自主实验循环 | ⬜ 未开始 | **等用户确认**：在哪个分支上做（`program.md` 要求新建 `autoresearch/<tag>`）、跑多久 | `program.md` |
+| 5 | `program.md` 自主实验循环（教学用，约 1 小时 / 8 个实验） | ✅ | 3 个保留（batch 2^18、`DEPTH` 6、`MATRIX_LR` 0.06），4 个丢弃，1 个只做测量；最好 **1.099618** | LOG L10、L11 |
 
 ## 3. 机器与路径
 
@@ -26,23 +27,24 @@
 | 远程 GPU | SSH 别名 `ZCY-4090`（root@hb01-ssh.gpuhome.cc:30139） | RTX 4090 D 24 GB，22 核，100 GB 内存 |
 | 远程代码 + `.venv` | `/root/autoresearch`（系统盘，会随镜像保存） | |
 | 远程数据 + 缓存 | `/root/rivermind-data/cache`（数据盘，**不会随镜像保存**） | `~/.cache/autoresearch` 是指向这里的软链接 |
-| 远程运行日志 | `/root/autoresearch/run.log`；`/root/tools/*.log` | 不进 git |
+| 远程运行日志 | `/root/autoresearch/run.log` | 不进 git；历次实验日志和下载/准备日志已备份到本地 `results/oct25-4090d/` |
 
 已经弃用的机器：`bitahub-4090`、`BH-4090`，显存硬件故障，不要再用。
 
 ## 4. 怎么接着干（新会话照做）
 
 ```bash
-# 0) 本地：确认三边一致（应输出同一个 hash，共三行）
+# 0) 本地：确认三边一致（每个分支一行，同一行的三个 hash 应相同）
 cd /home/lxx/projects/autoresearch && git fetch -q origin && git fetch -q zcy
-for r in HEAD origin/repro/wsl-remote-4090 zcy/repro/wsl-remote-4090; do git rev-parse --short $r; done
+for b in repro/wsl-remote-4090 autoresearch/oct25-4090d; do
+  echo "$b: $(git rev-parse --short $b) $(git rev-parse --short origin/$b) $(git rev-parse --short zcy/$b)"; done
 
 # 1) 远程：~/.bashrc 已经自动 source tools/env.sh，直接用即可
 ssh ZCY-4090 'cd /root/autoresearch && git status -sb && tail -3 run.log'
 ssh ZCY-4090 'grep "^val_bpb:\|^peak_vram_mb:" /root/autoresearch/run.log'
 
-# 2) 重新跑训练（约 7 分钟：编译 + 5 分钟训练 + 评估）
-ssh ZCY-4090 'cd /root/autoresearch && nohup sh -c "uv run train.py > run.log 2>&1; echo TRAIN_EXIT=\$? >> run.log" </dev/null >/dev/null 2>&1 &'
+# 2) 跑一个实验（本地执行：推送当前 HEAD → 远程训练 → 打印结果，约 7 分钟）
+sh tools/run_remote.sh
 ```
 
 **新实例 / 数据盘被清空后**，按顺序执行：
@@ -52,6 +54,7 @@ ssh ZCY-4090 'cd /root/autoresearch && nohup sh -c "uv run train.py > run.log 2>
 ## 5. 三边同步规则
 
 本地 commit → `git push origin` → `git push zcy` → 用上面的第 0 步检查三边一致。
+**文档只在主线 `repro/wsl-remote-4090` 上维护**：实验分支结束后，用 `git checkout <实验分支> -- docs/ tools/` 把文档和工具合回主线再提交，不带入实验改过的 `train.py`。
 **远程连不上 GitHub，不要在远程执行 `git pull`。** 远程如果有未提交的改动，`git push zcy` 会被拒绝（`updateInstead` 机制），先处理掉再推。
 
 ## 6. 已知坑（踩过的）
@@ -67,3 +70,10 @@ ssh ZCY-4090 'cd /root/autoresearch && nohup sh -c "uv run train.py > run.log 2>
 2. `train.py` 打印的 MFU 是按 H100 峰值算力计算的，在 4090 上只能做相对参考。
 3. 你给的运行命令里有 `NO_COMPILE=1`，但 `train.py` 并不读取这个变量。如果确实需要关闭编译，要另外加代码。
 4. 4090 在 5 分钟里只能跑 260 步（`program.md` 的 H100 示例是 953 步），所以 baseline bpb 比示例里的 0.998 高。之后的实验应该和 **1.122878** 比，不要和 H100 的数字比。
+
+## 8. 收尾状态（2026-10-25）
+
+- 三边同步到同一个 commit（分支 `autoresearch/oct25-4090d`；`repro/wsl-remote-4090` 也已同步）。
+- 远程独有的 `results.tsv` 和实验日志已备份到本地 `results/oct25-4090d/`（被 git 忽略，已用 sha256 核对），结果表同时写进了 LOG L11。
+- 按用户要求，对远程 ZCY-4090 执行了 `shutdown`，避免继续计费。数据盘和系统盘的内容关机后都保留；开机后 `~/.bashrc` 会自动加载 `tools/env.sh`，可以直接接着跑。
+- **重新开机后**：先运行第 4 节的第 0 步核对三边一致，再用 `sh tools/run_remote.sh` 跑实验。如果实例换了 SSH 别名，同时更新本地 git remote `zcy` 和 `run_remote.sh` 的 `HOST` 变量。
